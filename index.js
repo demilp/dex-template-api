@@ -2,21 +2,47 @@ import axios from "axios";
 import isEqual from "lodash/isEqual";
 import * as io from "socket.io-client";
 import { Subject } from "rxjs";
-import { first } from "rxjs/operators";
 
 export default class DexTemplateService {
-  constructor(appName, options) {
-    options = options || {};
-    this.debugMetadata = options.debugMetadata || {};
+  constructor(appName) {
     this.appName = appName;
     let self = this;
     this.ip = null;
     this.metadataSubject = new Subject();
     this.ipSubject = new Subject();
-    this.passthroughSubject = new Subject();  
+    this.passthroughSubject = new Subject();
     this.broadcastSubject = new Subject();
-
     this.metadata = {};
+
+    if (window.parent === window) {
+      if (process.env.NODE_ENV !== "production") {
+        self.ip = "localhost";
+        self.ipSubject.next(self.ip);
+        this.createSocket(self.ip);
+        this.log("Development socket created");
+      }
+      if (window.EventSource) {
+        var source = new EventSource(
+          "http://localhost:9520/event-stream?channel=POST|receiveTurn"
+        );
+        source.addEventListener(
+          "message",
+          function(e) {
+            if (e.data.startsWith("POST|receiveTurn@cmd.String ")) {
+              let msg = JSON.parse(JSON.parse(e.data.substring(28)));
+              this.passthroughSubject.next({
+                ...msg,
+                Timestamp: new Date().toISOString()
+              });
+            }
+          }.bind(this),
+          false
+        );
+      }
+    } else {
+      this.log("Requesting ip address");
+      window.parent.postMessage(getIPRequest, "*");
+    }
 
     window.addEventListener("message", e => {
       try {
@@ -38,6 +64,7 @@ export default class DexTemplateService {
         } else if (data.type === "ip") {
           this.log("Received ip " + content);
           self.ip = content === "0.0.0.0" ? "localhost" : content;
+          self.createSocket(self.ip);
           self.ipSubject.next(self.ip);
         } else if (data.type === "sendSync") {
           self.broadcastSubject.next(data);
@@ -46,14 +73,6 @@ export default class DexTemplateService {
         this.log(error);
       }
     });
-    setTimeout(() => {
-      if (options.passthrough) {
-        this.initPassthough();
-      }
-      if (options.metadataServiceInterval) {
-        this.initMetadataService(options.metadataServiceInterval);
-      }
-    }, 0);
   }
 
   createSocket(ip) {
@@ -64,7 +83,7 @@ export default class DexTemplateService {
       function(msg) {
         this.passthroughSubject.next({
           ...msg,
-          timestamp: new Date().toISOString()
+          Timestamp: new Date().toISOString()
         });
       }.bind(this)
     );
@@ -97,8 +116,6 @@ export default class DexTemplateService {
         .catch(error => {
           /* if (__config.useDebugMetadata)
             this.metadataSubject.next(testMetadata); */
-          debugger;
-          this.metadataSubject.next(this.debugMetadata);
         });
     } else window.parent.postMessage(getMetadataRequest, "*");
   }
@@ -107,7 +124,7 @@ export default class DexTemplateService {
     this.log("Sending broadcast " + JSON.stringify(data));
     window.parent.postMessage(
       {
-        data: data,
+        content: data,
         type: "sendSync",
         origin: "DexTemplate",
         app: this.appName
@@ -115,70 +132,15 @@ export default class DexTemplateService {
       "*"
     );
   }
-  getIp() {
-    if (window.parent === window) {
-      //if (process.env.NODE_ENV !== "production") {
-      this.ip = "localhost";
-      this.ipSubject.next(this.ip);
-    } else {
-      this.log("Requesting ip address");
-      window.parent.postMessage(getIPRequest, "*");
-    }
-    //}
-  }
-  initMetadataService(time) {
-    setInterval(() => this.getMetadata(), time || 2 * 60 * 1000);
-  }
-  initPassthough(options) {
-    options = options || {};
 
-    if (
-      window.parent === window &&
-      window.EventSource &&
-      options.windowsEventSource
-    ) {
-      // if is Windows
-      var source = new EventSource(
-        "http://localhost:9520/event-stream?channel=POST|" +
-          options.windowsEventSource
-      );
-      source.addEventListener(
-        "message",
-        function(e) {
-          if (
-            e.data.startsWith(`POST|${options.windowsEventSource}@cmd.String `)
-          ) {
-            let msg = JSON.parse(
-              JSON.parse(
-                e.data.substring(17 + options.windowsEventSource.length)
-              )
-            );
-            this.passthroughSubject.next({
-              ...msg,
-              timestamp: new Date().toISOString()
-            });
-          }
-        }.bind(this),
-        false
-      );
-    } else {
-      this.ipSubject.pipe(first()).subscribe(ip => {
-        this.createSocket(ip);
-        this.log("Development socket created");
-      });
-      this.getIp();
-    }
+  onMetadataChange() {
+    return this.metadataSubject;
+  }
+  onData() {
+    return this.passthroughSubject;
   }
   syncStatus() {
-    let p = Promise.resolve();
-    if (!this.ip)
-      p = new Promise((resolve, reject) => {
-        this.ipSubject.pipe(first()).subscribe(resolve);
-        this.getIp();
-      });
-    return p.then(() => {
-      axios.get("http://" + this.ip + ":9520");
-    });
+    return axios.get("http://" + this.ip + ":9520");
   }
   log(message) {
     let l = {
