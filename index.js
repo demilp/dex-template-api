@@ -3,7 +3,7 @@ import isEqual from "lodash/isEqual";
 import * as io from "socket.io-client";
 import { Subject } from "rxjs";
 
-export default class DexTemplateService {
+export default class DexTemplateApi {
   constructor(appName) {
     this.appName = appName;
     let self = this;
