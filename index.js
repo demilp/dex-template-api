@@ -12,6 +12,7 @@ export default class DexTemplateApi {
     this.ipSubject = new Subject();
     this.passthroughSubject = new Subject();
     this.broadcastSubject = new Subject();
+    this.keySubject = new Subject();
     this.metadata = {};
 
     if (window.parent === window) {
@@ -68,6 +69,8 @@ export default class DexTemplateApi {
           self.ipSubject.next(self.ip);
         } else if (data.type === "sendSync") {
           self.broadcastSubject.next(data);
+        }else if(data.type === "key"){
+          self.keySubject.next(content);
         }
       } catch (error) {
         this.log(error);
