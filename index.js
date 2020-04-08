@@ -2,9 +2,12 @@ import axios from "axios";
 import isEqual from "lodash/isEqual";
 import * as io from "socket.io-client";
 import { Subject } from "rxjs";
+import { first } from "rxjs/operators";
 
-export default class DexTemplateApi {
-  constructor(appName) {
+export default class DexTemplateService {
+  constructor(appName, options) {
+    options = options || {};
+    this.debugMetadata = options.debugMetadata || {};
     this.appName = appName;
     let self = this;
     this.ip = null;
@@ -12,38 +15,8 @@ export default class DexTemplateApi {
     this.ipSubject = new Subject();
     this.passthroughSubject = new Subject();
     this.broadcastSubject = new Subject();
-    this.keySubject = new Subject();
-    this.metadata = {};
 
-    if (window.parent === window) {
-      if (process.env.NODE_ENV !== "production") {
-        self.ip = "localhost";
-        self.ipSubject.next(self.ip);
-        this.createSocket(self.ip);
-        this.log("Development socket created");
-      }
-      if (window.EventSource) {
-        var source = new EventSource(
-          "http://localhost:9520/event-stream?channel=POST|receiveTurn"
-        );
-        source.addEventListener(
-          "message",
-          function(e) {
-            if (e.data.startsWith("POST|receiveTurn@cmd.String ")) {
-              let msg = JSON.parse(JSON.parse(e.data.substring(28)));
-              this.passthroughSubject.next({
-                ...msg,
-                Timestamp: new Date().toISOString()
-              });
-            }
-          }.bind(this),
-          false
-        );
-      }
-    } else {
-      this.log("Requesting ip address");
-      window.parent.postMessage(getIPRequest, "*");
-    }
+    this.metadata = {};
 
     window.addEventListener("message", e => {
       try {
@@ -65,17 +38,22 @@ export default class DexTemplateApi {
         } else if (data.type === "ip") {
           this.log("Received ip " + content);
           self.ip = content === "0.0.0.0" ? "localhost" : content;
-          self.createSocket(self.ip);
           self.ipSubject.next(self.ip);
         } else if (data.type === "sendSync") {
           self.broadcastSubject.next(data);
-        }else if(data.type === "key"){
-          self.keySubject.next(content);
         }
       } catch (error) {
         this.log(error);
       }
     });
+    setTimeout(() => {
+      if (options.passthrough) {
+        this.initPassthough();
+      }
+      if (options.metadataServiceInterval) {
+        this.initMetadataService(options.metadataServiceInterval);
+      }
+    }, 0);
   }
 
   createSocket(ip) {
@@ -86,7 +64,7 @@ export default class DexTemplateApi {
       function(msg) {
         this.passthroughSubject.next({
           ...msg,
-          Timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString()
         });
       }.bind(this)
     );
@@ -95,31 +73,45 @@ export default class DexTemplateApi {
   getMetadata() {
     this.log("Requesting metadata");
     if (window.parent === window) {
-      axios
-        .get("http://localhost:9501/DexClient/GetMachineInfo.json")
-        .then(response => {
-          if (response.data && response.data.MachineMetadata) {
-            let metadata = {
-              ...response.data.MachineMetadata,
-              Id: response.data.MachineId
-            };
-            this.log("Received metadata " + JSON.stringify(metadata));
-            if (!isEqual(metadata, this.metadata)) {
-              this.log(
-                "Metadata changed from " +
-                  JSON.stringify(this.metadata) +
-                  " to " +
-                  JSON.stringify(metadata)
-              );
-              this.metadata = metadata;
-              this.metadataSubject.next(this.metadata);
+      if (process.env.NODE_ENV === "development"){
+        if (!isEqual(this.debugMetadata, this.metadata)) {
+          this.log(
+            "Metadata changed from " +
+              JSON.stringify(this.metadata) +
+              " to " +
+              JSON.stringify(this.debugMetadata)
+          );
+          this.metadata = this.debugMetadata;
+          this.metadataSubject.next(this.debugMetadata);
+        }
+      }
+        
+      else
+        axios
+          .get("http://localhost:9501/DexClient/GetMachineInfo.json")
+          .then(response => {
+            if (response.data && response.data.MachineMetadata) {
+              let metadata = {
+                ...response.data.MachineMetadata,
+                Id: response.data.MachineId
+              };
+              this.log("Received metadata " + JSON.stringify(metadata));
+              if (!isEqual(metadata, this.metadata)) {
+                this.log(
+                  "Metadata changed from " +
+                    JSON.stringify(this.metadata) +
+                    " to " +
+                    JSON.stringify(metadata)
+                );
+                this.metadata = metadata;
+                this.metadataSubject.next(this.metadata);
+              }
             }
-          }
-        })
-        .catch(error => {
-          /* if (__config.useDebugMetadata)
+          })
+          .catch(error => {
+            /* if (__config.useDebugMetadata)
             this.metadataSubject.next(testMetadata); */
-        });
+          });
     } else window.parent.postMessage(getMetadataRequest, "*");
   }
 
@@ -127,7 +119,7 @@ export default class DexTemplateApi {
     this.log("Sending broadcast " + JSON.stringify(data));
     window.parent.postMessage(
       {
-        content: data,
+        data: data,
         type: "sendSync",
         origin: "DexTemplate",
         app: this.appName
@@ -135,15 +127,71 @@ export default class DexTemplateApi {
       "*"
     );
   }
-
-  onMetadataChange() {
-    return this.metadataSubject;
+  getIp() {
+    if (window.parent === window) {
+      //if (process.env.NODE_ENV !== "production") {
+      this.ip = "localhost";
+      this.ipSubject.next(this.ip);
+    } else {
+      this.log("Requesting ip address");
+      window.parent.postMessage(getIPRequest, "*");
+    }
+    //}
   }
-  onData() {
-    return this.passthroughSubject;
+  initMetadataService(time) {
+    setInterval(() => this.getMetadata(), time || 2 * 60 * 1000);
+    this.getMetadata();
+  }
+  initPassthough(options) {
+    options = options || {};
+
+    if (
+      window.parent === window &&
+      window.EventSource &&
+      options.windowsEventSource
+    ) {
+      // if is Windows
+      var source = new EventSource(
+        "http://localhost:9520/event-stream?channel=POST|" +
+          options.windowsEventSource
+      );
+      source.addEventListener(
+        "message",
+        function(e) {
+          if (
+            e.data.startsWith(`POST|${options.windowsEventSource}@cmd.String `)
+          ) {
+            let msg = JSON.parse(
+              JSON.parse(
+                e.data.substring(17 + options.windowsEventSource.length)
+              )
+            );
+            this.passthroughSubject.next({
+              ...msg,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }.bind(this),
+        false
+      );
+    } else {
+      this.ipSubject.pipe(first()).subscribe(ip => {
+        this.createSocket(ip);
+        this.log("Development socket created");
+      });
+      this.getIp();
+    }
   }
   syncStatus() {
-    return axios.get("http://" + this.ip + ":9520");
+    let p = Promise.resolve();
+    if (!this.ip)
+      p = new Promise((resolve, reject) => {
+        this.ipSubject.pipe(first()).subscribe(resolve);
+        this.getIp();
+      });
+    return p.then(() => {
+      axios.get("http://" + this.ip + ":9520");
+    });
   }
   log(message) {
     let l = {
