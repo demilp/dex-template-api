@@ -192,9 +192,13 @@ export default class DexTemplateService {
         this.ipSubject.pipe(first()).subscribe(resolve);
         this.getIp();
       });
-    return p.then(() => {
-      axios.get("http://" + this.ip + ":9520");
-    });
+    return p
+      .then(() => {
+        return axios.get("http://" + this.ip + ":9520");
+      })
+      .then((request) => {
+        return request.data;
+      });
   }
   log(message) {
     let l = {
