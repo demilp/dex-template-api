@@ -8,6 +8,7 @@ export default class DexTemplateService {
   constructor(appName, options) {
     options = options || {};
     this.debugMetadata = options.debugMetadata || {};
+    this.useDebugMetadata = option.useDebugMetadata || false;
     this.appName = appName;
     let self = this;
     this.ip = null;
@@ -16,9 +17,9 @@ export default class DexTemplateService {
     this.passthroughSubject = new Subject();
     this.broadcastSubject = new Subject();
 
-    this.metadata = {};
+    this.metadata = null;
 
-    window.addEventListener("message", e => {
+    window.addEventListener("message", (e) => {
       try {
         if (typeof e.data !== "object") return;
         const data = e.data;
@@ -61,10 +62,10 @@ export default class DexTemplateService {
     this.socket = io(`http://${ip}:9520/passthrough`);
     this.socket.on(
       "data",
-      function(msg) {
+      function (msg) {
         this.passthroughSubject.next({
           ...msg,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }.bind(this)
     );
@@ -73,27 +74,29 @@ export default class DexTemplateService {
   getMetadata() {
     this.log("Requesting metadata");
     if (window.parent === window) {
-      if (process.env.NODE_ENV === "development"){
-        if (!isEqual(this.debugMetadata, this.metadata)) {
+      if (this.useDebugMetadata) {
+        let meta =
+          typeof this.useDebugMetadata === "function"
+            ? this.debugMetadata()
+            : this.debugMetadata;
+        if (!isEqual(meta, this.metadata)) {
           this.log(
             "Metadata changed from " +
               JSON.stringify(this.metadata) +
               " to " +
-              JSON.stringify(this.debugMetadata)
+              JSON.stringify(meta)
           );
-          this.metadata = this.debugMetadata;
-          this.metadataSubject.next(this.debugMetadata);
+          this.metadata = meta;
+          this.metadataSubject.next(meta);
         }
-      }
-        
-      else
+      } else
         axios
           .get("http://localhost:9501/DexClient/GetMachineInfo.json")
-          .then(response => {
+          .then((response) => {
             if (response.data && response.data.MachineMetadata) {
               let metadata = {
                 ...response.data.MachineMetadata,
-                Id: response.data.MachineId
+                Id: response.data.MachineId,
               };
               this.log("Received metadata " + JSON.stringify(metadata));
               if (!isEqual(metadata, this.metadata)) {
@@ -108,7 +111,7 @@ export default class DexTemplateService {
               }
             }
           })
-          .catch(error => {
+          .catch((error) => {
             /* if (__config.useDebugMetadata)
             this.metadataSubject.next(testMetadata); */
           });
@@ -122,7 +125,7 @@ export default class DexTemplateService {
         data: data,
         type: "sendSync",
         origin: "DexTemplate",
-        app: this.appName
+        app: this.appName,
       },
       "*"
     );
@@ -157,7 +160,7 @@ export default class DexTemplateService {
       );
       source.addEventListener(
         "message",
-        function(e) {
+        function (e) {
           if (
             e.data.startsWith(`POST|${options.windowsEventSource}@cmd.String `)
           ) {
@@ -168,14 +171,14 @@ export default class DexTemplateService {
             );
             this.passthroughSubject.next({
               ...msg,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
             });
           }
         }.bind(this),
         false
       );
     } else {
-      this.ipSubject.pipe(first()).subscribe(ip => {
+      this.ipSubject.pipe(first()).subscribe((ip) => {
         this.createSocket(ip);
         this.log("Development socket created");
       });
@@ -197,7 +200,7 @@ export default class DexTemplateService {
     let l = {
       type: "log",
       content: { tag: `[${this.appName}]`, message: message },
-      origin: "DexTemplate"
+      origin: "DexTemplate",
     };
     console.log(l.content.message);
     window.parent.postMessage(l, "*");
@@ -206,10 +209,10 @@ export default class DexTemplateService {
 const getMetadataRequest = {
   origin: "DexTemplate",
   type: "getMetadata",
-  content: {}
+  content: {},
 };
 const getIPRequest = {
   origin: "DexTemplate",
   type: "getIP",
-  content: {}
+  content: {},
 };
