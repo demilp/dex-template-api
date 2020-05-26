@@ -8,7 +8,7 @@ export default class DexTemplateService {
   constructor(appName, options) {
     options = options || {};
     this.debugMetadata = options.debugMetadata || {};
-    this.useDebugMetadata = option.useDebugMetadata || false;
+    this.useDebugMetadata = options.useDebugMetadata || false;
     this.appName = appName;
     let self = this;
     this.ip = null;
