@@ -76,7 +76,7 @@ export default class DexTemplateService {
     if (window.parent === window) {
       if (this.useDebugMetadata) {
         let meta =
-          typeof this.useDebugMetadata === "function"
+          typeof this.debugMetadata === "function"
             ? this.debugMetadata()
             : this.debugMetadata;
         if (!isEqual(meta, this.metadata)) {
