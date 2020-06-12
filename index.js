@@ -33,9 +33,9 @@ export default class DexTemplateService {
                 " to " +
                 JSON.stringify(content)
             );
-            self.metadata = content;
-            self.metadataSubject.next(self.metadata);
           }
+          self.metadata = content;
+          self.metadataSubject.next(self.metadata);
         } else if (data.type === "ip") {
           this.log("Received ip " + content);
           self.ip = content === "0.0.0.0" ? "localhost" : content;
@@ -79,16 +79,14 @@ export default class DexTemplateService {
           typeof this.debugMetadata === "function"
             ? this.debugMetadata()
             : this.debugMetadata;
-        if (!isEqual(meta, this.metadata)) {
-          this.log(
-            "Metadata changed from " +
-              JSON.stringify(this.metadata) +
-              " to " +
-              JSON.stringify(meta)
-          );
-          this.metadata = meta;
-          this.metadataSubject.next(meta);
-        }
+        this.log(
+          "Metadata changed from " +
+            JSON.stringify(this.metadata) +
+            " to " +
+            JSON.stringify(meta)
+        );
+        this.metadata = meta;
+        this.metadataSubject.next(meta);
       } else
         axios
           .get("http://localhost:9501/DexClient/GetMachineInfo.json")
@@ -99,16 +97,14 @@ export default class DexTemplateService {
                 Id: response.data.MachineId,
               };
               this.log("Received metadata " + JSON.stringify(metadata));
-              if (!isEqual(metadata, this.metadata)) {
-                this.log(
-                  "Metadata changed from " +
-                    JSON.stringify(this.metadata) +
-                    " to " +
-                    JSON.stringify(metadata)
-                );
-                this.metadata = metadata;
-                this.metadataSubject.next(this.metadata);
-              }
+              this.log(
+                "Metadata changed from " +
+                  JSON.stringify(this.metadata) +
+                  " to " +
+                  JSON.stringify(metadata)
+              );
+              this.metadata = metadata;
+              this.metadataSubject.next(this.metadata);
             }
           })
           .catch((error) => {
