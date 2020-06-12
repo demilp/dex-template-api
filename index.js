@@ -79,12 +79,13 @@ export default class DexTemplateService {
           typeof this.debugMetadata === "function"
             ? this.debugMetadata()
             : this.debugMetadata;
-        this.log(
-          "Metadata changed from " +
-            JSON.stringify(this.metadata) +
-            " to " +
-            JSON.stringify(meta)
-        );
+        if (!isEqual(this.metadata, meta))
+          this.log(
+            "Metadata changed from " +
+              JSON.stringify(this.metadata) +
+              " to " +
+              JSON.stringify(meta)
+          );
         this.metadata = meta;
         this.metadataSubject.next(meta);
       } else
