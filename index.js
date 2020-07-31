@@ -206,6 +206,16 @@ export default class DexTemplateService {
     console.log(l.content.message);
     window.parent.postMessage(l, "*");
   }
+  setMediaTagState(mediaTagState) {
+    window.parent.postMessage(
+      {
+        origin: "DexTemplate",
+        type: "setTagState",
+        content: mediaTagState,
+      },
+      "*"
+    );
+  }
 }
 const getMetadataRequest = {
   origin: "DexTemplate",
