@@ -206,16 +206,50 @@ export default class DexTemplateService {
     console.log(l.content.message);
     window.parent.postMessage(l, "*");
   }
-  setMediaTagState(mediaTagState) {
+
+  showMediaByTag(tag) {
+    let content  = null;
+    if(Array.isArray(tag)){
+      content = tag.map(t=>
+        {return{tag:t, state:"SHOW",data:null}}
+      )
+    }else{
+      content = {
+        tag, state:"SHOW", data:null
+      };
+    }
     window.parent.postMessage(
       {
         origin: "DexTemplate",
         type: "setTagState",
-        content: mediaTagState,
+        content,
       },
       "*"
     );
   }
+
+  hideMediaByTag(tag, durationMinutes = null) {
+    let content  = null;
+    if(Array.isArray(tag)){
+      content = tag.map(t=>
+        {return{tag:t, state:"HIDE",data:durationMinutes}}
+      )
+    }else{
+      content = {
+        tag, state:"HIDE", data:durationMinutes
+      };
+    }
+    window.parent.postMessage(
+      {
+        origin: "DexTemplate",
+        type: "setTagState",
+        content,
+      },
+      "*"
+    );
+  }
+
+
 }
 const getMetadataRequest = {
   origin: "DexTemplate",
