@@ -26,7 +26,8 @@ export default class DexTemplateService {
         const data = e.data;
         const content = data.content;
         if (data.type === "metadata") {
-          this.log("Received metadata " + JSON.stringify(content));
+          if (sendLogs)
+            this.log("Received metadata " + JSON.stringify(content));
           if (!isEqual(content, self.metadata)) {
             this.log(
               "Metadata changed from " +
@@ -38,7 +39,7 @@ export default class DexTemplateService {
           self.metadata = content;
           self.metadataSubject.next(self.metadata);
         } else if (data.type === "ip") {
-          this.log("Received ip " + content);
+          if (this.sendLogs) this.log("Received ip " + content);
           self.ip = content === "0.0.0.0" ? "localhost" : content;
           self.ipSubject.next(self.ip);
         } else if (data.type === "sendSync") {
@@ -73,7 +74,7 @@ export default class DexTemplateService {
   }
 
   getMetadata() {
-    this.log("Requesting metadata");
+    if (this.sendLogs) this.log("Requesting metadata");
     if (window.parent === window) {
       if (this.useDebugMetadata) {
         let meta =
@@ -139,7 +140,7 @@ export default class DexTemplateService {
       this.ip = "localhost";
       this.ipSubject.next(this.ip);
     } else {
-      this.log("Requesting ip address");
+      if (this.sendLogs) this.log("Requesting ip address");
       window.parent.postMessage(getIPRequest, "*");
     }
     //}
@@ -183,7 +184,7 @@ export default class DexTemplateService {
     } else {
       this.ipSubject.pipe(first()).subscribe((ip) => {
         this.createSocket(ip);
-        this.log("Development socket created");
+        if (this.sendLogs) this.log("Development socket created");
       });
       this.getIp();
     }
