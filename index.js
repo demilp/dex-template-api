@@ -5,7 +5,8 @@ import { Subject } from "rxjs";
 import { first } from "rxjs/operators";
 
 export default class DexTemplateService {
-  constructor(appName, options) {
+  constructor(appName, options, sendLogs) {
+    this.sendLogs = sendLogs === false ? false : true;
     options = options || {};
     this.debugMetadata = options.debugMetadata || {};
     this.useDebugMetadata = options.useDebugMetadata || false;
@@ -97,13 +98,16 @@ export default class DexTemplateService {
                 ...response.data.MachineMetadata,
                 Id: response.data.MachineId,
               };
-              this.log("Received metadata " + JSON.stringify(metadata));
-              this.log(
-                "Metadata changed from " +
-                  JSON.stringify(this.metadata) +
-                  " to " +
-                  JSON.stringify(metadata)
-              );
+              if (this.sendLogs) {
+                this.log("Received metadata " + JSON.stringify(metadata));
+                this.log(
+                  "Metadata changed from " +
+                    JSON.stringify(this.metadata) +
+                    " to " +
+                    JSON.stringify(metadata)
+                );
+              }
+
               this.metadata = metadata;
               this.metadataSubject.next(this.metadata);
             }
@@ -116,7 +120,9 @@ export default class DexTemplateService {
   }
 
   broadcast(data) {
-    this.log("Sending broadcast " + JSON.stringify(data));
+    if (this.sendLogs) {
+      this.log("Sending broadcast " + JSON.stringify(data));
+    }
     window.parent.postMessage(
       {
         data: data,
@@ -208,14 +214,16 @@ export default class DexTemplateService {
   }
 
   showMediaByTag(tag) {
-    let content  = null;
-    if(Array.isArray(tag)){
-      content = tag.map(t=>
-        {return{tag:t, state:"SHOW",data:null}}
-      )
-    }else{
+    let content = null;
+    if (Array.isArray(tag)) {
+      content = tag.map((t) => {
+        return { tag: t, state: "SHOW", data: null };
+      });
+    } else {
       content = {
-        tag, state:"SHOW", data:null
+        tag,
+        state: "SHOW",
+        data: null,
       };
     }
     window.parent.postMessage(
@@ -229,14 +237,16 @@ export default class DexTemplateService {
   }
 
   hideMediaByTag(tag, durationMinutes = null) {
-    let content  = null;
-    if(Array.isArray(tag)){
-      content = tag.map(t=>
-        {return{tag:t, state:"HIDE",data:durationMinutes}}
-      )
-    }else{
+    let content = null;
+    if (Array.isArray(tag)) {
+      content = tag.map((t) => {
+        return { tag: t, state: "HIDE", data: durationMinutes };
+      });
+    } else {
       content = {
-        tag, state:"HIDE", data:durationMinutes
+        tag,
+        state: "HIDE",
+        data: durationMinutes,
       };
     }
     window.parent.postMessage(
@@ -248,8 +258,6 @@ export default class DexTemplateService {
       "*"
     );
   }
-
-
 }
 const getMetadataRequest = {
   origin: "DexTemplate",
