@@ -259,7 +259,31 @@ export default class DexTemplateService {
       "*"
     );
   }
+
+  hideTpl() {
+    window.parent.postMessage(
+      {
+        origin: "DexTemplate",
+        type: "tplDisplayStatus",
+        content: "hide",
+      },
+      "*"
+    );
+  }
+  
+  showTpl() {
+    window.parent.postMessage(
+      {
+        origin: "DexTemplate",
+        type: "tplDisplayStatus",
+        content: "show",
+      },
+      "*"
+    );
+  }
+
 }
+
 const getMetadataRequest = {
   origin: "DexTemplate",
   type: "getMetadata",
