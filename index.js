@@ -282,6 +282,20 @@ export default class DexTemplateService {
     );
   }
 
+  uploadFile(name, content, mimeType){
+    window.parent.postMessage(
+      {
+        mimeType,
+        name,
+        content,
+        origin: "DexTemplate",
+        type: "uploadFile",
+      },
+      "*"
+    );
+  }
+  }
+
 }
 
 const getMetadataRequest = {
