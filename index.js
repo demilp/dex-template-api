@@ -270,7 +270,7 @@ export default class DexTemplateService {
       "*"
     );
   }
-  
+
   showTpl() {
     window.parent.postMessage(
       {
@@ -282,7 +282,7 @@ export default class DexTemplateService {
     );
   }
 
-  uploadFile(name, content, mimeType){
+  uploadFile(name, content, mimeType) {
     window.parent.postMessage(
       {
         mimeType,
@@ -294,8 +294,6 @@ export default class DexTemplateService {
       "*"
     );
   }
-  }
-
 }
 
 const getMetadataRequest = {
