@@ -135,16 +135,29 @@ export default class DexTemplateService {
     );
   }
   getIp() {
-    if (window.parent === window) {
-      //if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV === "development") {
       this.ip = "localhost";
-      this.ipSubject.next(this.ip);
+      return this.ipSubject.next(this.ip);
+    }
+    if (window.parent === window) {
+      axios
+        .get("http://localhost:9501/DexClient/GetMachineInfo.json")
+        .then((response) => {
+          if (response.data && response.data.IPs.length) {
+            this.ip = response.data.IPs[0];
+            return this.ipSubject.next(this.ip);
+          }
+        })
+        .catch((error) => {
+          this.ip = "localhost";
+          return this.ipSubject.next(this.ip);
+        });
     } else {
       if (this.sendLogs) this.log("Requesting ip address");
       window.parent.postMessage(getIPRequest, "*");
     }
-    //}
   }
+
   initMetadataService(time) {
     setInterval(() => this.getMetadata(), time || 2 * 60 * 1000);
     this.getMetadata();
